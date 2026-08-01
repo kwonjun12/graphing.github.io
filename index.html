@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graphing - An Graph-Algorithm game</title>
+<style>
+    /* Reset & Base */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { overflow-x: hidden; background: #fff; color: #333; }
+    
+    /* PC-Only Screen */
+    #mobile-block { display: none; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; }
+    @media (max-width: 768px) {
+        #mobile-block { display: flex; }
+        #app { display: none !important; }
+    }
+    #mobile-block h1 { font-size: 5rem; margin-bottom: 1rem; }
+    #mobile-block p { font-size: 1.2rem; }
+
+    /* App Container */
+    #app { width: 100vw; height: 100vh; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+    
+    /* Buttons */
+    .btn { padding: 14px 36px; border-radius: 40px; border: none; cursor: pointer; font-size: 1.1rem; transition: all 0.3s ease; margin: 0 10px; }
+    .btn-black { background: #000; color: #fff; }
+    .btn-gray { background: #b0b0b0; color: #fff; }
+    .btn:hover { opacity: 0.8; }
+
+    /* Screen Base */
+    .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; background: #fff; }
+    .screen.active { display: flex; }
+
+    /* Intro Screen */
+    #screen-intro { transition: filter 0.5s ease; z-index: 10; }
+    #screen-intro.blur-active { filter: blur(15px); pointer-events: none; }
+    .title-group { text-align: center; margin-bottom: 50px; }
+    #screen-intro h1 { font-size: 7rem; font-family: 'Times New Roman', Times, serif; font-weight: normal; margin-bottom: 10px; letter-spacing: 2px; }
+    #screen-intro h2 { font-size: 1.8rem; font-weight: 300; color: #666; font-family: 'Times New Roman', Times, serif; letter-spacing: 1px; }
+
+    /* Rules Screen */
+    #screen-rules { z-index: 50; background: rgba(255, 255, 255, 0.95); }
+    .rules-content { max-width: 800px; text-align: left; background: #fafafa; padding: 40px; border-radius: 12px; border: 1px solid #ddd; }
+    .rules-content h2 { margin-bottom: 20px; font-size: 2rem; }
+    .rules-content p, .rules-content li { font-size: 1.1rem; line-height: 1.6; margin-bottom: 10px; }
+    .rules-content ul { margin-left: 20px; margin-bottom: 20px; }
+
+    /* Role Reveal Screen */
+    #screen-role-reveal { z-index: 20; background: rgba(255, 255, 255, 0.3); }
+    #role-text { font-size: 3rem; font-weight: bold; opacity: 0; transition: opacity 0.5s; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
+
+    /* Map Selection Screen - 확실한 중앙 정렬 */
+    #screen-mapselect { z-index: 10; justify-content: center; align-items: center; display: none; }
+    #screen-mapselect.active { display: flex; }
+    #screen-mapselect h2 { margin-bottom: 20px; font-size: 2rem; }
+    .map-grid { display: grid; grid-template-columns: repeat(2, 420px); grid-template-rows: repeat(2, 240px); gap: 20px; justify-content: center; align-content: center; }
+    .map-card { border: 2px solid #e0e0e0; border-radius: 12px; cursor: pointer; text-align: center; transition: all 0.3s; width: 420px; height: 240px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; background: #fafafa; position: relative; overflow: hidden; }
+    .map-card:hover { border-color: #3498db; background: #f0f8ff; }
+    .map-card-title { padding: 8px; width: 100%; border-bottom: 1px solid #ddd; background: #fff; z-index: 2; }
+    .map-card h3 { margin: 0 0 2px 0; color: #333; font-size: 1.05rem; }
+    .map-card p { margin: 0; color: #666; font-size: 0.8rem; }
+    .minimap-container { position: relative; width: 800px; height: 450px; transform: scale(0.38); transform-origin: top center; margin-top: 5px; pointer-events: none; }
+
+    /* Game Screen */
+    #screen-game { z-index: 10; justify-content: flex-start; padding-top: 20px; }
+    .header-bar { width: 100%; max-width: 1000px; display: flex; justify-content: space-between; padding: 10px 20px; margin-bottom: 10px; font-size: 1.1rem; color: #555; }
+    .header-bar span { cursor: pointer; }
+    .header-bar span:hover { color: #000; font-weight: bold; }
+    .status-text { font-size: 1.3rem; font-weight: bold; margin-bottom: 10px; }
+    #c-score-display { font-size: 1.1rem; color: #e74c3c; font-weight: bold; margin-bottom: 15px; border: 2px solid #e74c3c; padding: 6px 18px; border-radius: 30px; transition: all 0.3s; }
+    
+    /* Board */
+    .board-container { border: 1px solid #e0e0e0; border-radius: 12px; position: relative; background: #fafafa; margin-bottom: 20px; width: 800px; height: 450px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .node { position: absolute; width: 40px; height: 40px; background: #fff; border: 2px solid #b0b0b0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; z-index: 2; color: #666; transform: translate(-50%, -50%); }
+    .node.s-node { background: #34495e; color: #fff; border-color: #34495e; }
+    .node.t-node { border: 4px double #b0b0b0; }
+    .edge-line { position: absolute; background: #d0d0d0; transform-origin: 0 50%; cursor: pointer; z-index: 1; transition: background 0.3s; height: 6px; }
+    .edge-line:hover { background: #999; }
+    .edge-line.selected { background: #3498db; }
+    .edge-line.assigned { background: #2c3e50; cursor: default; }
+    
+    /* Edge Weight Label */
+    .edge-label { position: absolute; background: #fff; border: 2px solid #b0b0b0; color: #333; font-size: 0.95rem; font-weight: bold; border-radius: 6px; padding: 2px 6px; z-index: 3; transform: translate(-50%, -50%); cursor: pointer; display: none; }
+    .edge-label.visible { display: flex; align-items: center; justify-content: center; }
+
+    /* Number Selector */
+    .number-pad { display: flex; flex-wrap: wrap; max-width: 850px; justify-content: center; gap: 8px; margin-bottom: 15px; }
+    .num-btn { width: 46px; height: 46px; border: 2px solid #d0d0d0; border-radius: 10px; background: #fff; cursor: pointer; font-size: 1.1rem; font-weight: bold; color: #555; transition: all 0.2s; }
+    .num-btn:disabled { background: #f0f0f0; color: #ccc; cursor: not-allowed; border-color: #eee; }
+    .num-btn:not(:disabled):hover { border-color: #3498db; color: #3498db; }
+
+    /* AI Loading */
+    #ai-loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center; }
+    .spinner { border: 5px solid rgba(0,0,0,0.1); width: 50px; height: 50px; border-radius: 50%; border-left-color: #333; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="mobile-block">
+    <h1>Oops!</h1>
+    <p>It's a PC-Only site. Please visit this site on PC.</p>
+</div>
+
+<div id="app">
+    <!-- Intro Screen -->
+    <div id="screen-intro" class="screen active">
+        <div class="title-group">
+            <h1>Graphing</h1>
+            <h2>An Graph-Algorithm game</h2>
+        </div>
+        <div>
+            <button class="btn btn-black" onclick="startRoleReveal()">Start</button>
+            <button class="btn btn-gray" onclick="showRules()">Show me the rules</button>
+        </div>
+    </div>
+
+    <!-- Rules Screen -->
+    <div id="screen-rules" class="screen">
+        <div class="rules-content">
+            <h2>게임 규칙 (간선 게임)</h2>
+            <p><strong>개요:</strong> 2x3 직사각형 격자 형태의 노드와 간선으로 이루어진 그래프에서 진행되는 턴제 알고리즘 게임입니다.</p>
+            <ul>
+                <li><strong>시작점(S)과 목표점(T):</strong> 공격자와 수비자는 S에서 T로 가는 경로를 완성해야 합니다.</li>
+                <li><strong>행동:</strong> 자신의 턴에 '배정되지 않은 간선' 하나와 '사용되지 않은 숫자' 하나를 골라 간선에 배정합니다.</li>
+                <li><strong>경로의 난이도:</strong> S에서 T로 가는 특정 경로에 배정된 숫자 중 '가장 큰 값'이 해당 경로의 난이도입니다.</li>
+                <li><strong>그래프의 난이도(C):</strong> S에서 T로 가는 모든 가능한 경로들의 난이도 중 '가장 작은 값'이 최종 C가 됩니다. (미배정 간선은 0으로 간주하여 실시간 C값 계산)</li>
+            </ul>
+            <p><strong>승리 조건:</strong> 공격자는 C를 최대화하는 것이 목표이며, 수비자는 C를 최소화하는 것이 목표입니다.<br>(기준점 C=6: C가 7 이상이면 공격자 승, 5 이하면 수비자 승, 6면 무승부)</p>
+            <li><strong>KOI 2026 1차대회 중등부 20번 문제(간선 게임)를 응용하여 제작되었습니다.</li>
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn btn-black" onclick="closeRules()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Reveal Screen -->
+    <div id="screen-role-reveal" class="screen">
+        <div id="role-text"></div>
+    </div>
+
+    <!-- Map Selection Screen -->
+    <div id="screen-mapselect" class="screen">
+        <h2>플레이할 맵을 선택하십시오</h2>
+        <div class="map-grid" id="map-grid">
+            <!-- 맵 카드가 JS로 주입됩니다 -->
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="screen-game" class="screen">
+        <div class="header-bar">
+            <span onclick="location.reload()">Home</span>
+            <span onclick="showRules()">Show me the rules</span>
+        </div>
+        
+        <div id="c-score-display">현재 난이도 (C): 0</div>
+        <div class="status-text" id="turn-status"></div>
+        
+        <div class="board-container" id="board">
+            <div id="ai-loading">
+                <div class="spinner"></div>
+                <h3 style="color:#333;">AI's Turn. Working...</h3>
+            </div>
+        </div>
+
+        <div class="number-pad" id="numpad"></div>
+        <p style="color: #666; margin-top: 10px; font-size: 1rem;">간선을 선택한 후 숫자를 배정하십시오.</p>
+    </div>
+</div>
+
+<script>
+    class UnionFind {
+        constructor(size) {
+            this.parent = Array.from({length: size}, (_, i) => i);
+        }
+        find(i) {
+            if (this.parent[i] === i) return i;
+            return this.parent[i] = this.find(this.parent[i]);
+        }
+        union(i, j) {
+            const rootI = this.find(i);
+            const rootJ = this.find(j);
+            if (rootI !== rootJ) this.parent[rootI] = rootJ;
+        }
+    }
+
+    let isAttacker = true;
+    let selectedEdgeId = null;
+    let selectedMapIdx = 0;
+    const TOTAL_EDGES = 11; // 2x3 직사각형 격자 기반 11개 간선
+    let edges = []; 
+    let usedNumbers = new Set();
+    
+    const screenIntro = document.getElementById('screen-intro');
+    const screenRules = document.getElementById('screen-rules');
+    const screenRoleReveal = document.getElementById('screen-role-reveal');
+    const screenMapSelect = document.getElementById('screen-mapselect');
+    const screenGame = document.getElementById('screen-game');
+    
+    const board = document.getElementById('board');
+    const numpad = document.getElementById('numpad');
+    const turnStatus = document.getElementById('turn-status');
+    const cScoreDisplay = document.getElementById('c-score-display');
+    const roleText = document.getElementById('role-text');
+
+    // 2x3 직사각형 그리드 형태의 맵 데이터 (노드 6개, 간선 11개 표준화)
+    // 노드 배치: 
+    // [0: S(좌상)]   [1: 상중]   [2: 상우]
+    // [3: 좌하]       [4: 하중]   [5: T(우하)]
+    const mapsData = [
+        { 
+            title: "Map 1 (정통 직사각형 격자)", desc: "기본적인 2x3 직사각형 구조",
+            nodes: [ {x:150,y:120,l:'S',isS:true}, {x:400,y:120,l:''}, {x:650,y:120,l:''}, {x:150,y:330,l:''}, {x:400,y:330,l:''}, {x:650,y:330,l:'T',isT:true} ],
+            edges: [ [0,1], [1,2], [3,4], [4,5], [0,3], [1,4], [2,5], [0,4], [1,5], [3,1], [4,2] ]
+        },
+        { 
+            title: "Map 2 (크로스 직사각형 격자)", desc: "대각선 교차가 강화된 직사각형",
+            nodes: [ {x:150,y:120,l:'S',isS:true}, {x:400,y:120,l:''}, {x:650,y:120,l:''}, {x:150,y:330,l:''}, {x:400,y:330,l:''}, {x:650,y:330,l:'T',isT:true} ],
+            edges: [ [0,1], [1,2], [3,4], [4,5], [0,3], [1,4], [2,5], [0,5], [3,2], [0,4], [1,5] ]
+        },
+        { 
+            title: "Map 3 (대칭형 직사각형 격자)", desc: "균형 잡힌 복합 경로 직사각형",
+            nodes: [ {x:150,y:120,l:'S',isS:true}, {x:400,y:120,l:''}, {x:650,y:120,l:''}, {x:150,y:330,l:''}, {x:400,y:330,l:''}, {x:650,y:330,l:'T',isT:true} ],
+            edges: [ [0,1], [1,2], [3,4], [4,5], [0,3], [1,4], [2,5], [3,1], [4,2], [0,4], [3,5] ]
+        },
+        { 
+            title: "Map 4 (다중 우회 직사각형 격자)", desc: "우회와 선택지가 많은 직사각형",
+            nodes: [ {x:150,y:120,l:'S',isS:true}, {x:400,y:120,l:''}, {x:650,y:120,l:''}, {x:150,y:330,l:''}, {x:400,y:330,l:''}, {x:650,y:330,l:'T',isT:true} ],
+            edges: [ [0,1], [1,2], [3,4], [4,5], [0,3], [1,4], [2,5], [0,5], [3,1], [4,2], [1,5] ]
+        }
+    ];
+
+    function showScreen(element) {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function showRules() {
+        screenRules.classList.add('active');
+    }
+
+    function closeRules() {
+        screenRules.classList.remove('active');
+    }
+
+    function startRoleReveal() {
+        screenIntro.classList.add('blur-active');
+        
+        setTimeout(() => {
+            screenRoleReveal.classList.add('active');
+            isAttacker = Math.random() > 0.5;
+            roleText.innerText = isAttacker ? '당신은 공격자 입니다.' : '당신은 수비자 입니다.';
+            
+            setTimeout(() => {
+                roleText.style.opacity = 1;
+                
+                setTimeout(() => {
+                    roleText.style.opacity = 0;
+                    screenIntro.classList.remove('blur-active');
+                    
+                    setTimeout(() => {
+                        if(isAttacker) {
+                            renderMapSelection();
+                            showScreen(screenMapSelect);
+                        } else {
+                            selectedMapIdx = Math.floor(Math.random() * 4);
+                            initGame();
+                        }
+                    }, 500);
+                }, 2000);
+            }, 100);
+        }, 500);
+    }
+
+    function renderMapSelection() {
+        const grid = document.getElementById('map-grid');
+        grid.innerHTML = '';
+        
+        mapsData.forEach((map, idx) => {
+            const card = document.createElement('div');
+            card.className = 'map-card';
+            card.onclick = () => {
+                selectedMapIdx = idx;
+                initGame();
+            };
+            
+            const titleBox = document.createElement('div');
+            titleBox.className = 'map-card-title';
+            titleBox.innerHTML = `<h3>${map.title}</h3><p>${map.desc}</p>`;
+            
+            const minimap = document.createElement('div');
+            minimap.className = 'minimap-container';
+            drawGraph(minimap, map, true);
+            
+            card.appendChild(titleBox);
+            card.appendChild(minimap);
+            grid.appendChild(card);
+        });
+    }
+
+    function drawGraph(container, mapDef, isPreview = false) {
+        mapDef.nodes.forEach(n => {
+            const div = document.createElement('div');
+            div.className = `node ${n.isS ? 's-node' : ''} ${n.isT ? 't-node' : ''}`;
+            div.style.left = `${n.x}px`;
+            div.style.top = `${n.y}px`;
+            div.innerText = n.l;
+            container.appendChild(div);
+        });
+
+        mapDef.edges.forEach((e, idx) => {
+            const u = mapDef.nodes[e[0]], v = mapDef.nodes[e[1]];
+            const length = Math.hypot(v.x - u.x, v.y - u.y);
+            const angle = Math.atan2(v.y - u.y, v.x - u.x) * 180 / Math.PI;
+            const midX = (u.x + v.x) / 2;
+            const midY = (u.y + v.y) / 2;
+            
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'edge-line';
+            lineDiv.style.width = `${length}px`;
+            lineDiv.style.left = `${u.x}px`;
+            lineDiv.style.top = `${u.y - 3}px`;
+            lineDiv.style.transform = `rotate(${angle}deg)`;
+            
+            container.appendChild(lineDiv);
+
+            if (!isPreview) {
+                lineDiv.onclick = () => selectEdge(idx);
+                
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'edge-label';
+                labelDiv.style.left = `${midX}px`;
+                labelDiv.style.top = `${midY}px`;
+                labelDiv.onclick = () => selectEdge(idx);
+                
+                container.appendChild(labelDiv);
+                edges.push({ id: idx, u: e[0], v: e[1], weight: null, lineEl: lineDiv, labelEl: labelDiv });
+            }
+        });
+    }
+
+    function initGame() {
+        showScreen(screenGame);
+        turnStatus.innerText = `Map ${selectedMapIdx + 1} - 당신은 ${isAttacker ? '공격자' : '수비자'} 입니다.`;
+        edges = [];
+        usedNumbers.clear();
+        board.innerHTML = '<div id="ai-loading"><div class="spinner"></div><h3 style="color:#333;">AI\'s Turn. Working...</h3></div>';
+        numpad.innerHTML = '';
+        selectedEdgeId = null;
+
+        drawGraph(board, mapsData[selectedMapIdx], false);
+        updateCurrentC();
+
+        for(let i = 1; i <= TOTAL_EDGES; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'num-btn';
+            btn.innerText = i;
+            btn.onclick = () => assignNumber(i);
+            btn.id = `num-${i}`;
+            numpad.appendChild(btn);
+        }
+
+        if(!isAttacker) {
+            triggerAITurn();
+        }
+    }
+
+    function updateCurrentC() {
+        const allEdges = edges.map(e => ({
+            u: e.u,
+            v: e.v,
+            weight: e.weight !== null ? e.weight : 0
+        })).sort((a, b) => a.weight - b.weight);
+
+        const mapDef = mapsData[selectedMapIdx];
+        const uf = new UnionFind(mapDef.nodes.length); 
+        
+        let sNodeIdx = mapDef.nodes.findIndex(n => n.isS);
+        let tNodeIdx = mapDef.nodes.findIndex(n => n.isT);
+        let currentC = 0;
+
+        for(const e of allEdges) {
+            uf.union(e.u, e.v);
+            if(uf.find(sNodeIdx) === uf.find(tNodeIdx)) {
+                currentC = e.weight;
+                break;
+            }
+        }
+
+        cScoreDisplay.innerText = `현재 난이도 (C): ${currentC}`;
+        return currentC;
+    }
+
+    function selectEdge(id) {
+        if(edges[id].weight !== null) return;
+        edges.forEach(e => e.lineEl.classList.remove('selected'));
+        selectedEdgeId = id;
+        edges[id].lineEl.classList.add('selected');
+    }
+
+    function assignNumber(num) {
+        if(selectedEdgeId === null || usedNumbers.has(num)) return;
+        
+        const edge = edges[selectedEdgeId];
+        edge.weight = num;
+        
+        edge.lineEl.classList.remove('selected');
+        edge.lineEl.classList.add('assigned');
+        edge.labelEl.innerText = num;
+        edge.labelEl.classList.add('visible');
+        
+        usedNumbers.add(num);
+        document.getElementById(`num-${num}`).disabled = true;
+        selectedEdgeId = null;
+
+        updateCurrentC();
+
+        if(usedNumbers.size === TOTAL_EDGES) {
+            endGame();
+        } else {
+            triggerAITurn();
+        }
+    }
+
+    function triggerAITurn() {
+        const loading = document.getElementById('ai-loading');
+        loading.style.display = 'flex';
+        
+        const delay = Math.floor(Math.random() * 2000) + 1500;
+        
+        setTimeout(() => {
+            const availableEdges = edges.filter(e => e.weight === null);
+            const availableNums = [];
+            for(let i=1; i<=TOTAL_EDGES; i++) if(!usedNumbers.has(i)) availableNums.push(i);
+            
+            const randEdge = availableEdges[Math.floor(Math.random() * availableEdges.length)];
+            const randNum = availableNums[Math.floor(Math.random() * availableNums.length)];
+            
+            randEdge.weight = randNum;
+            randEdge.lineEl.classList.add('assigned');
+            randEdge.labelEl.innerText = randNum;
+            randEdge.labelEl.classList.add('visible');
+            
+            usedNumbers.add(randNum);
+            document.getElementById(`num-${randNum}`).disabled = true;
+            
+            updateCurrentC();
+            loading.style.display = 'none';
+
+            if(usedNumbers.size === TOTAL_EDGES) {
+                endGame();
+            }
+        }, delay);
+    }
+
+    function endGame() {
+        const finalC = updateCurrentC();
+        let resultMsg = "";
+        
+        if (finalC > 6) {
+            resultMsg = isAttacker ? "승리" : "패배";
+        } else if (finalC < 6) {
+            resultMsg = !isAttacker ? "승리" : "패배";
+        } else {
+            resultMsg = "무승부입니다.";
+        }
+
+        setTimeout(() => {
+            alert(`게임 종료!\n\n모든 간선 배정이 완료되었습니다.\n최종 그래프 난이도(C): ${finalC}\n\n결과: ${resultMsg}`);
+        }, 100);
+    }
+</script>
+</body>
+</html>
